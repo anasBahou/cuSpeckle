@@ -130,8 +130,7 @@ std::string get_curr_dir()
 * @param fileNameOut output file name
 * @return 0 if write success, -1 if failure
 */
-int write_output_image(float *imgOut, const std::string fileNameOut,
-                       paramSpeckle<float> myParamSpeckle, paramAlgo<float> myParamAlgo, paramSensor<float> myParamSensor)
+int write_output_image(float *imgOut, const std::string fileNameOut, int width, int height)
 {
     std::string outputExtension(getFileExt(fileNameOut));
 
@@ -143,7 +142,7 @@ int write_output_image(float *imgOut, const std::string fileNameOut,
         strcmp((const char *)(outputExtension.c_str()), "") == 0) //png files
     {
         if (0 != io_png_write_f32(fileNameOutFull.c_str(), imgOut,
-                                  myParamSensor.dims.x, myParamSensor.dims.y, 1)) // 1 channel is used
+                                  width, height, 1)) // 1 channel is used
         {
             std::cout << "Error, could not write the image file." << std::endl;
             return (-1);

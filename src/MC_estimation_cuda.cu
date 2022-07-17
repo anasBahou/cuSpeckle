@@ -51,8 +51,8 @@ __host__ __device__ __forceinline__ void mapping(float x_in, float y_in, float *
 */
 float estimate_delta(vec2D<int> dims)
 {
-    const int width = dims.x;
-    const int height = dims.y;
+    const int width = dims.y;
+    const int height = dims.x;
     const int size = width * height;
     float *dX, *dY;
     dX = (float *)malloc(size * sizeof(float));
@@ -156,6 +156,8 @@ __global__ void setup_kernel(unsigned int seed, curandStatePhilox4_32_10_t *stat
  * @param y pixel's y coordinate
  * @param disk_arr "L" search space
  * @param rc_size size of "L"
+ * @param sigma standard deviation of the PSF
+
 
  * @return void
 */
@@ -170,24 +172,25 @@ __global__ void compute_intensity_kernel_float(curandStatePhilox4_32_10_t *state
     int id = threadIdx.x + blockIdx.x * blockDim.x;
     const int max_itr_per_thread = samples/(blockDim.x * gridDim.x);
     const int r_itr_per_thread = samples%(blockDim.x * gridDim.x);
-    unsigned int intensity = 0;
-    float2 rand_var; // OR double2
+    
+    unsigned int intensity = 0; // intensity counter
+    float2 rand_var; // random vector Xm
+    float dist, d1, d2, fx, fy; // tmp variables
     Random_disk disk; // tmp disk
     /* Copy state to local memory for efficiency */
     curandStatePhilox4_32_10_t localState = state[id];
     /* Run MC simulation */
     for(int i = 0; i < max_itr_per_thread; ++i) {
         rand_var = curand_normal2(&localState);
-        float fx = 0, fy = 0;
         mapping(x + sigma*rand_var.x, y + sigma*rand_var.y, &fx, &fy);
 
         // check if phi(x+Xm) belongs to one of the disks
         for (unsigned int k = 0; k < rc_size; ++k)
         {
             disk = disk_arr[k];
-            float d1 =disk.x - fx;
-            float d2 = disk.y - fy;
-            float dist = d1 * d1 + d2 * d2;
+            d1 =disk.x - fx;
+            d2 = disk.y - fy;
+            dist = d1 * d1 + d2 * d2;
             if (dist < disk.r)
             {
                 ++intensity;
@@ -199,16 +202,15 @@ __global__ void compute_intensity_kernel_float(curandStatePhilox4_32_10_t *state
     // carry on the ramaining simulations on the first 'r_itr_per_thread' threads (in case (float)'max_itr_per_thread'=not int)
     if (id < r_itr_per_thread){                
         rand_var = curand_normal2(&localState);
-        float fx = 0, fy = 0;
         mapping(x + sigma*rand_var.x, y + sigma*rand_var.y, &fx, &fy);
 
         // check if phi(x+Xm) belongs to one of the disks
         for (unsigned int k = 0; k < rc_size; ++k)
         {
             disk = disk_arr[k];
-            float d1 =disk.x - fx;
-            float d2 = disk.y - fy;
-            float dist = d1 * d1 + d2 * d2;
+            d1 =disk.x - fx;
+            d2 = disk.y - fy;
+            dist = d1 * d1 + d2 * d2;
             if (dist < disk.r)
             {
                 ++intensity;
@@ -245,10 +247,11 @@ __global__ void compute_intensity_kernel_float(curandStatePhilox4_32_10_t *state
  * @param seed PRNG seed
  * @param width image width
  * @param height image height
- * @param alpha software parameter
- * @param nbit software parameter
- * @param gamma software parameter
- * @param N0 software parameter
+ * @param sigma standard deviation of the PSF
+ * @param alpha quantization error probability
+ * @param nbit bit depth
+ * @param gamma speckle contrast
+ * @param N0 sample size to estimate NMC
 
  * @return int 
 */
@@ -329,19 +332,19 @@ int monte_carlo_estimation_cuda(float *speckle_matrix, float *Random_centers, fl
     setup_kernel<<<grid, block>>>(seed, devPHILOXStates);
 
     // utility var 
-    int count = 0;
-    float dist;
+    int count = 0; // size of "L"
+    float dist, d1, d2, fx, fy;
+    float intensity;
+    int NMC;
 
     // Monte Carlo estimation
-    for (int x = 1; x < width + 1; ++x)
+    for (int x = 1; x < height + 1; ++x)
     {
-        for (int y = 1; y < height + 1; ++y)
+        for (int y = 1; y < width + 1; ++y)
         {
-            float fx = 0, fy = 0;
-            float d1, d2;
             mapping(x, y, &fx, &fy);
-            // calculate L(x,y) = Ind
-            count = 0; // size of RR
+            // Pre-compute search space "L"
+            count = 0;
             Random_disk disk;
             Boolean_model_disk bm_disk;
             for (int i = 0; i < number; ++i)
@@ -374,14 +377,13 @@ int monte_carlo_estimation_cuda(float *speckle_matrix, float *Random_centers, fl
                 total += hostResults[i];
             }
             
-            float intensity = (float)total/N0;
+            intensity = (float)total/N0;
             // Estimation of Monte Carlo sample size NMC
-            int NMC;
-            NMC = floor((float)2 / pi * gamma * gamma * (intensity - intensity * intensity) * pow(2, 2 * nbit) / (alpha * alpha)) - N0;
+            NMC = floor(2.f / pi * gamma * gamma * (intensity - intensity * intensity) * pow(2, 2 * nbit) / (alpha * alpha)) - N0;
 
             if (NMC < 1)
             {
-                speckle_matrix[(x - 1) + (y - 1) * width] = 1 - intensity; // x & y start at 1 instead of 0
+                speckle_matrix[(y - 1) + (x - 1) * width] = 1 - intensity; // x & y start at 1 instead of 0
             }
             else
             {
@@ -402,8 +404,8 @@ int monte_carlo_estimation_cuda(float *speckle_matrix, float *Random_centers, fl
                     total += hostResults[i];
                 }
                 
-                float intensity = (float)total/NMC;
-                speckle_matrix[(x - 1) + (y - 1) * width] = res + (1 - intensity) * ((float)NMC / (N0 + NMC));
+                intensity = (float)total/NMC;
+                speckle_matrix[(y - 1) + (x - 1) * width] = res + (1 - intensity) * ((float)NMC / (N0 + NMC));
             }
         }
     }
@@ -417,8 +419,6 @@ int monte_carlo_estimation_cuda(float *speckle_matrix, float *Random_centers, fl
 
     for (int i = 0; i < width * height; ++i)
         speckle_matrix[i] = pow(2, nbit - 1) + (gamma * pow(2, nbit) * (speckle_matrix[i] - 0.5));
-
-    printf("^^^^ MC estimation CUDA test PASSED\n");
 
     return EXIT_SUCCESS;
 }

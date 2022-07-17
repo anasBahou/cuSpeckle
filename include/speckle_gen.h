@@ -1,3 +1,6 @@
+#ifndef    SPECKLE_GEN_H
+#define    SPECKLE_GEN_H
+
 #include <iostream>
 #include <string>
 #include <chrono>
@@ -33,3 +36,5 @@ int monte_carlo_estimation_cuda(float *speckle_matrix, float *Random_centers, fl
 int monte_carlo_estimation_mesh(float *speckle_matrix, float *Random_centers, float *Random_radius, float *RBound, int number, unsigned int seed, int width, int height, float sigma, float alpha, int nbit, float gamma, int N0, float* disp_map_x, float* disp_map_y);
 
 void quantization(float *img_out, float *speckle_matrix, int img_size, int nbit);
+
+#endif

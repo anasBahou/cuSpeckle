@@ -3,7 +3,7 @@
     *x_out = x_in;
     *y_out = y_in;
 
-// save both files
+// save file
 
 // re-build the executable by running "make"
 

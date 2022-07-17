@@ -1,3 +1,6 @@
+#ifndef    UTIL_H
+#define    UTIL_H
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -23,8 +26,9 @@ std::string getFileName(const std::string &s);
 
 std::string get_curr_dir();
 
-int write_output_image(float *imgOut, const std::string fileNameOut,
-                       paramSpeckle<float> myParamSpeckle, paramAlgo<float> myParamAlgo, paramSensor<float> myParamSensor);
+int write_output_image(float *imgOut, const std::string fileNameOut, int width, int height);
 
 template <typename T>
 std::vector<T> read_csv_matrix(std::string filename, int *size_x, int *size_y);
+
+#endif

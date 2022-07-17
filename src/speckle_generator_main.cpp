@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
     else
     {
         mesh_mode = false;
-        std::cout << "Error no dispX_file file" << std::endl;
+        std::cout << "No dispX_file file" << std::endl;
         std::cout << "Using the mapping function" << std::endl;
     }
 
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
     else
     {
         mesh_mode = false;
-        std::cout << "Error no dispY_file file" << std::endl;
+        std::cout << "No dispY_file file" << std::endl;
         std::cout << "Using the mapping function" << std::endl;
     }
 
@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
     paramSensor<float> myParamSensor;
     vec2D<int> myDims;
 
-    myDims.x = width;
-    myDims.y = height;
+    myDims.x = height;
+    myDims.y = width;
     myParamSpeckle.distribR = distribR;
     myParamSpeckle.gamma = gamma;
     myParamSpeckle.lambda = lambda;
@@ -220,9 +220,6 @@ int main(int argc, char *argv[])
     std::mt19937_64 generator(seed);
     std::poisson_distribution<int> distrib(myParamSpeckle.lambda);
     int number = distrib(generator);
-#ifdef DEBUG
-    printf("number of disks = %d\n", number);
-#endif
 
     // allocate memory for the generated Random_radius
     float *Random_radius;
@@ -252,7 +249,6 @@ int main(int argc, char *argv[])
 
         boolean_model_mesh(Random_centers, Random_radius, RBound, myParamSpeckle, myParamAlgo, myParamSensor, number, seed, disp_map_x, disp_map_y);
 
-        // monte_carlo_estimation<T>(speckle_matrix, Random_centers, Random_radius, RBound, myParamSpeckle, myParamAlgo, myParamSensor, number, fun, seed);
         monte_carlo_estimation_mesh(speckle_matrix, Random_centers, Random_radius, RBound, number, seed, width, height, sigma, alpha, nbit, gamma, N0, disp_map_x, disp_map_y);
 
     }
@@ -261,7 +257,6 @@ int main(int argc, char *argv[])
         // in case of using a "mapping" function
         boolean_model(Random_centers, Random_radius, RBound, myParamSpeckle, myParamAlgo, myParamSensor, number, seed);
 
-        // monte_carlo_estimation<T>(speckle_matrix, Random_centers, Random_radius, RBound, myParamSpeckle, myParamAlgo, myParamSensor, number, fun, seed);
         monte_carlo_estimation_cuda(speckle_matrix, Random_centers, Random_radius, RBound, number, seed, width, height, sigma, alpha, nbit, gamma, N0);
     }
     
@@ -273,21 +268,9 @@ int main(int argc, char *argv[])
     qt_out = (float *)malloc(width * height * sizeof(float));
     quantization(qt_out, speckle_matrix, width * height, nbit);
 
-    //create output float image
-    float *imgOut = NULL;
-    imgOut = (float *)malloc(width * height * 1 * sizeof(float)); // number of channels is 3 <=> RGB
-
-    for (int i = 0; i < height; ++i)
-    {
-        for (int j = 0; j < width; j++)
-        {
-            imgOut[j + i * width] = qt_out[j + i * width]; //red
-        }
-    }
-    write_output_image(imgOut, fileNameOut, myParamSpeckle, myParamAlgo, myParamSensor);
+    write_output_image(qt_out, fileNameOut, width, height);
 
     // free the allocated memory
-    free(imgOut);
     free(qt_out);
     free(speckle_matrix);
     free(Random_radius);
