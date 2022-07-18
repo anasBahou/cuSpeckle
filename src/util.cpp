@@ -3,11 +3,7 @@
 #include "io_png.h"
 #include "util.h"
 
-
-
-
-
-/// help on usage of inpainting code
+// display how to use the program
 void show_help()
 {
     std::cerr << "\nSpeckle Generator.\n"
