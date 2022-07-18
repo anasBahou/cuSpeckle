@@ -1,12 +1,12 @@
 // replace the code inside "mapping" in "MC_estimation_cuda.cu" line 37 with the following "star" displacement mapping:
 
     float A = 5;
-    float decalage_origine = 250;
+    float decalage_origine = 125;
     float periode_mini = 4;
     float periode_maxi = 32;
     float max_h = 2*decalage_origine;
-    float periode = x_in * (periode_maxi - periode_mini) / max_h + periode_mini;
-    *x_out = x_in + A * (float)cos(2 * pi / periode * (y_in - decalage_origine));
+    float periode = y_in * (periode_maxi - periode_mini) / max_h + periode_mini;
+    *x_out = x_in + A * (float)cos(2 * pi / periode * (x_in - decalage_origine));
     *y_out = y_in;
 
 // save file
@@ -14,5 +14,6 @@
 // re-build the executable by running "make"
 
 // you can generate the figure results by running the following command line:
-./cuSpeckle def_star.png -width 500 -height 250
+
+    ./cuSpeckle def_star.png -width 500 -height 250
 
